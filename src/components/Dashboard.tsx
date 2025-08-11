@@ -1,7 +1,7 @@
 import { Card } from "./ui/card";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
-import { Button } from "./ui/button";
+import { Button } from "./ui/button.tsx";
 import { MessageCircle, BookOpen, BarChart3, Clock, Award, User } from "lucide-react";
 
 const clearModel = [

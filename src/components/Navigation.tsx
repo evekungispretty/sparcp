@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
-import { Card } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { Button } from "./ui/button.tsx";
+import { Card } from "./ui/card.tsx";
+import { Badge } from "./ui/badge.tsx";
 import { 
   LayoutDashboard, 
   MessageCircle, 

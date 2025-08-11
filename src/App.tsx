@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Navigation } from "./components/Navigation";
 import { Dashboard } from "./components/Dashboard";
-import { AvatorChat } from "./components/AvatorChat";
-import { LearningResources } from "./components/LearningResources.tsx";
+import { AvatarChat } from "./components/AvatarChat";
+import { LearningResources } from "./components/LearningResources";
 
 export default function App() {
   const [currentView, setCurrentView] = useState("dashboard");
@@ -12,7 +12,7 @@ export default function App() {
         case "dashboard":
           return <Dashboard />;
         case "practice":
-          return <AvatorChat />;
+          return <AvatarChat />;
         case "resources":
           return <LearningResources />;
         case "analytics":

@@ -1,7 +1,7 @@
 import * as React from "react"
 import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
-import { cn } from "../lib/utils"  
+import { cn } from "../../lib/utils"
 
 // This creates different button styles using class-variance-authority (cva)
 // Think of it like a "style factory" that generates CSS classes based on props

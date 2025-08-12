@@ -8,7 +8,7 @@ const clearModel = [
   { letter: "C", word: "Counsel", description: "Provide medical advice and guidance", progress: 75 },
   { letter: "L", word: "Listen", description: "Actively listen to parent concerns", progress: 85 },
   { letter: "E", word: "Empathize", description: "Show understanding and compassion", progress: 60 },
-  { letter: "A", word: "Answer", description: "Recognize parent feelings and concerns", progress: 70 },
+  { letter: "A", word: "Answer", description: "Address the content of the question", progress: 70 },
   { letter: "R", word: "Recommend", description: "Summarize and confirm understanding", progress: 65 },
 ];
 

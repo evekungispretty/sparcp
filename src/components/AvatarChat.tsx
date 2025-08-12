@@ -275,7 +275,7 @@ export function AvatarChat() {
               <div><strong>Counsel:</strong> Provide guidance</div>
               <div><strong>Listen:</strong> Show active listening</div>
               <div><strong>Empathize:</strong> Show understanding</div>
-              <div><strong>Acknowledge:</strong> Recognize concerns</div>
+              <div><strong>Answer:</strong> Answer their questions</div>
               <div><strong>Restate:</strong> Summarize understanding</div>
             </div>
           </Card>

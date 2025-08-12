@@ -78,9 +78,9 @@ const clearModules = [
     }
   },
   {
-    id: "acknowledge",
+    id: "answer",
     letter: "A",
-    title: "Acknowledge",
+    title: "Answer",
     description: "Learn to recognize and validate parent feelings and concerns",
     duration: "8 min",
     completed: false,
@@ -134,7 +134,7 @@ const scenarios = [
     description: "Family with religious or philosophical objections to vaccination",
     difficulty: "Intermediate",
     duration: "15-20 min",
-    skills: ["Acknowledge", "Restate", "Counsel"]
+    skills: ["Answer", "Restate", "Counsel"]
   },
   {
     id: 3,

@@ -132,7 +132,7 @@ export function Dashboard( { onStartNewSession }: DashboardProps) {
             <MessageCircle className="w-6 h-6" />
             <span>New Practice Session</span>
           </Button>
-          <Button className="gap-2" onClick={onStartNewSession}>
+          <Button variant="outline" className="h-20 flex-col gap-2" onClick={onStartNewSession}>
             <BookOpen className="w-6 h-6" />
             <span>View Learning Materials</span>
           </Button>

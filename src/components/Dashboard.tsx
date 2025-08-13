@@ -4,6 +4,10 @@ import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { MessageCircle, BookOpen, BarChart3, Clock, Award, User } from "lucide-react";
 
+interface DashboardProps {
+  onStartNewSession?: () => void;
+}
+
 const clearModel = [
   { letter: "C", word: "Counsel", description: "Provide medical advice and guidance", progress: 75 },
   { letter: "L", word: "Listen", description: "Actively listen to parent concerns", progress: 85 },
@@ -18,7 +22,7 @@ const recentSessions = [
   { id: 3, date: "2024-01-26", scenario: "Side Effects Concern", score: 88, duration: "10 min" },
 ];
 
-export function Dashboard() {
+export function Dashboard( { onStartNewSession }: DashboardProps) {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
@@ -29,7 +33,7 @@ export function Dashboard() {
             Standardized Patient Avatar for Reflective Communication Practice
           </p>
         </div>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={onStartNewSession}>
           <MessageCircle className="w-4 h-4" />
           Start New Session
         </Button>
@@ -128,7 +132,7 @@ export function Dashboard() {
             <MessageCircle className="w-6 h-6" />
             <span>New Practice Session</span>
           </Button>
-          <Button variant="outline" className="h-20 flex-col gap-2">
+          <Button className="gap-2" onClick={onStartNewSession}>
             <BookOpen className="w-6 h-6" />
             <span>View Learning Materials</span>
           </Button>

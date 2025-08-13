@@ -7,9 +7,10 @@ import { ScrollArea } from "./ui/scroll-area";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Send, Mic, MicOff, RotateCcw, User, Bot } from "lucide-react";
 
+//define what a chat message object looks like
 interface Message {
-  id: string;
-  sender: "user" | "avatar";
+  id: string; //must be a string
+  sender: "user" | "avatar"; //only these stringa
   content: string;
   timestamp: Date;
   clearComponents?: string[];
@@ -27,9 +28,14 @@ interface Scenario {
   };
 }
 
+interface AvatarChatProps {
+  selectedScenarioId: string | null;
+  selectedFocus?: string[];   
+}
+
 const scenarios: Scenario[] = [
   {
-    id: "1",
+    id: "hpv-initial",
     title: "Initial HPV Discussion",
     description: "First time discussing HPV vaccine with a parent",
     parentProfile: {
@@ -40,7 +46,7 @@ const scenarios: Scenario[] = [
     }
   },
   {
-    id: "2",
+    id: "vaccine-hesitant",
     title: "Vaccine Hesitant Parent",
     description: "Parent with strong reservations about vaccines",
     parentProfile: {
@@ -49,10 +55,32 @@ const scenarios: Scenario[] = [
       childAge: 12,
       concerns: ["side effects", "too many vaccines", "natural immunity"]
     }
+  },
+  {
+    id: "religious-objection",
+    title: "Religious/Cultural Concerns",
+    description: "Family with religious or cultural objections to HPV vaccination",
+    parentProfile: {
+      name: "Fatima Al-Rashid",
+      age: 35,
+      childAge: 13,
+      concerns: ["religious beliefs", "cultural values", "community pressure"]
+    }
+  },
+  {
+    id: "research-heavy",
+    title: "The Research-Heavy Parent",
+    description: "Parent who has done extensive research and challenges medical recommendations",
+    parentProfile: {
+      name: "Dr. Jennifer Martinez",
+      age: 45,
+      childAge: 11,
+      concerns: ["study limitations", "long-term data", "alternative approaches"]
+    }
   }
 ];
 
-export function AvatarChat() {
+export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentMessage, setCurrentMessage] = useState("");
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
@@ -60,11 +88,15 @@ export function AvatarChat() {
   const [sessionActive, setSessionActive] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+// this will start a new session if a scenario is selected
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    if (selectedScenarioId && !sessionActive) {
+      const scenario = scenarios.find(s => s.id === selectedScenarioId);
+      if (scenario) {
+        startSession(scenario);
+      }
     }
-  }, [messages]);
+  }, [selectedScenarioId, sessionActive]);
 
   const startSession = (scenario: Scenario) => {
     setSelectedScenario(scenario);
@@ -123,7 +155,7 @@ export function AvatarChat() {
     if (lowerMessage.includes("feel") || lowerMessage.includes("concern")) components.push("Empathize");
     if (lowerMessage.includes("what") || lowerMessage.includes("tell me")) components.push("Explore");
     if (lowerMessage.includes("so you") || lowerMessage.includes("let me")) components.push("Restate");
-    if (lowerMessage.includes("valid") || lowerMessage.includes("normal")) components.push("Acknowledge");
+    if (lowerMessage.includes("valid") || lowerMessage.includes("normal")) components.push("Answer");
     
     return components;
   };

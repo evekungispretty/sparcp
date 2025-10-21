@@ -6,6 +6,7 @@ import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import { Avatar, AvatarFallback } from "./ui/avatar";
 import { Send, Mic, MicOff, RotateCcw, User, Bot } from "lucide-react";
+import { UnityAvatar } from "./UnityAvatar";
 
 //define what a chat message object looks like
 interface Message {
@@ -237,6 +238,11 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
                   <p className="text-sm text-muted-foreground">AI Avatar • Parent</p>
                 </div>
               </div>
+            </div>
+
+            {/* 3D Unity Avatar */}
+            <div className="p-4 border-b bg-gray-50">
+              <UnityAvatar height="300px" />
             </div>
 
             <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">

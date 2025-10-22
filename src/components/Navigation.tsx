@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Award
 } from "lucide-react";
+import { StatusBar } from "./StatusBar";
 
 interface NavigationProps {
     currentView: string;
@@ -87,12 +88,7 @@ const navigationItems = [
   
         {!isCollapsed && (
           <div className="p-4 border-t mt-auto">
-            <Card className="p-3 bg-muted/30">
-              <div className="text-xs text-muted-foreground mb-2">Quick Tip</div>
-              <div className="text-sm">
-                Practice active listening by acknowledging parent concerns before providing medical guidance.
-              </div>
-            </Card>
+            <StatusBar />
           </div>
         )}
   

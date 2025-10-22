@@ -5,7 +5,9 @@ import { Input } from "./ui/input";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
 import { Avatar, AvatarFallback } from "./ui/avatar";
-import { Send, Mic, MicOff, RotateCcw, User, Bot } from "lucide-react";
+import { Send, Mic, MicOff, RotateCcw, User, Bot, Loader2, Volume2, VolumeX } from "lucide-react";
+import { sendChatMessage, convertToOpenAIFormat } from "../services/litellm";
+import { textToSpeech, playAudio } from "../services/elevenlabs";
 
 //define what a chat message object looks like
 interface Message {
@@ -14,6 +16,8 @@ interface Message {
   content: string;
   timestamp: Date;
   clearComponents?: string[];
+  audioUrl?: string;
+  isPlaying?: boolean;
 }
 
 interface Scenario {
@@ -39,9 +43,9 @@ const scenarios: Scenario[] = [
     title: "Initial HPV Discussion",
     description: "First time discussing HPV vaccine with a parent",
     parentProfile: {
-      name: "Sarah Johnson",
-      age: 42,
-      childAge: 11,
+      name: "Anne Palmer",
+      age: 37,
+      childAge: 10,
       concerns: ["vaccine safety", "necessity at young age"]
     }
   },
@@ -50,32 +54,32 @@ const scenarios: Scenario[] = [
     title: "Vaccine Hesitant Parent",
     description: "Parent with strong reservations about vaccines",
     parentProfile: {
-      name: "Michael Chen",
-      age: 38,
-      childAge: 12,
-      concerns: ["side effects", "too many vaccines", "natural immunity"]
+      name: "Maya Pena",
+      age: 29,
+      childAge: 9,
+      concerns: ["safety concerns", "too many shots", "infertility fears"]
     }
   },
   {
-    id: "religious-objection",
-    title: "Religious/Cultural Concerns",
-    description: "Family with religious or cultural objections to HPV vaccination",
+    id: "clear-coach",
+    title: "C-LEAR Coach Agent",
+    description: "AI evaluator and feedback provider for clinical communication skills",
     parentProfile: {
-      name: "Fatima Al-Rashid",
-      age: 35,
-      childAge: 13,
-      concerns: ["religious beliefs", "cultural values", "community pressure"]
+      name: "C-LEAR Coach",
+      age: 0,
+      childAge: 0,
+      concerns: ["communication skills", "clinical feedback", "performance evaluation"]
     }
   },
   {
-    id: "research-heavy",
-    title: "The Research-Heavy Parent",
-    description: "Parent who has done extensive research and challenges medical recommendations",
+    id: "sparc-supervisor",
+    title: "SPARC-P Supervisor Agent", 
+    description: "Central orchestrator and safety guardian for clinical simulation",
     parentProfile: {
-      name: "Dr. Jennifer Martinez",
-      age: 45,
-      childAge: 11,
-      concerns: ["study limitations", "long-term data", "alternative approaches"]
+      name: "SPARC-P Supervisor",
+      age: 0,
+      childAge: 0,
+      concerns: ["simulation safety", "protocol enforcement", "security monitoring"]
     }
   }
 ];
@@ -86,6 +90,9 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [sessionActive, setSessionActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
 // this will start a new session if a scenario is selected
@@ -101,17 +108,33 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
   const startSession = (scenario: Scenario) => {
     setSelectedScenario(scenario);
     setSessionActive(true);
+    
+    let initialContent = "";
+    if (scenario.parentProfile.age > 0) {
+      // Parent scenarios
+      initialContent = `Hi Doctor, I'm ${scenario.parentProfile.name}. I'm here with my ${scenario.parentProfile.childAge}-year-old for their check-up. I have some questions about vaccines...`;
+    } else {
+      // Agent scenarios - use appropriate initial messages
+      if (scenario.id === 'clear-coach') {
+        initialContent = "Hello! I'm the C-LEAR Coach. I'm here to help you practice your clinical communication skills. How can I assist you today?";
+      } else if (scenario.id === 'sparc-supervisor') {
+        initialContent = "Hello! I'm the SPARC-P Supervisor. I'm here to help manage the simulation environment. What would you like to discuss?";
+      } else {
+        initialContent = `Hi Doctor, I'm ${scenario.parentProfile.name}. How can I help you today?`;
+      }
+    }
+    
     const initialMessage: Message = {
       id: Date.now().toString(),
       sender: "avatar",
-      content: `Hi Doctor, I'm ${scenario.parentProfile.name}. I'm here with my ${scenario.parentProfile.childAge}-year-old for their check-up. I have some questions about vaccines...`,
+      content: initialContent,
       timestamp: new Date(),
     };
     setMessages([initialMessage]);
   };
 
-  const sendMessage = () => {
-    if (!currentMessage.trim() || !selectedScenario) return;
+  const sendMessage = async () => {
+    if (!currentMessage.trim() || !selectedScenario || isLoading) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -121,29 +144,66 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageToSend = currentMessage;
     setCurrentMessage("");
+    setIsLoading(true);
 
-    // Simulate AI response with C-LEAR component detection
-    setTimeout(() => {
-      const responses = [
-        "I appreciate you taking the time to explain that. But I'm still worried about the side effects I've read about online...",
-        "That makes sense, but my child is still so young. Do they really need this vaccine now?",
-        "I understand what you're saying, but I've heard that this vaccine might not be necessary if my child isn't sexually active yet.",
-        "Thank you for listening to my concerns. Can you tell me more about how this vaccine actually works?"
-      ];
-
-      const clearComponents = detectClearComponents(currentMessage);
+    try {
+      // Convert existing messages to OpenAI format (excluding the current user message)
+      const conversationHistory = convertToOpenAIFormat(messages);
+      
+      // Call LiteLLM API
+      const response = await sendChatMessage(conversationHistory, messageToSend, selectedScenario.id);
+      
+      const clearComponents = detectClearComponents(messageToSend);
       
       const avatarResponse: Message = {
         id: (Date.now() + 1).toString(),
         sender: "avatar",
-        content: responses[Math.floor(Math.random() * responses.length)],
+        content: response.content,
         timestamp: new Date(),
         clearComponents,
       };
 
       setMessages(prev => [...prev, avatarResponse]);
-    }, 1500);
+
+      // Generate and play audio for Anne and Maya
+      if (isAudioEnabled && (selectedScenario.id === 'hpv-initial' || selectedScenario.id === 'vaccine-hesitant')) {
+        try {
+          const character = selectedScenario.id === 'hpv-initial' ? 'anne' : 'maya';
+          const audioResponse = await textToSpeech(response.content, character);
+          
+          // Update the message with audio URL
+          setMessages(prev => prev.map(msg => 
+            msg.id === avatarResponse.id 
+              ? { ...msg, audioUrl: audioResponse.audioUrl }
+              : msg
+          ));
+
+          // Play the audio
+          setCurrentlyPlayingId(avatarResponse.id);
+          await playAudio(audioResponse.audioUrl);
+          setCurrentlyPlayingId(null);
+        } catch (error) {
+          console.error('Error generating or playing audio:', error);
+          // Continue without audio if there's an error
+        }
+      }
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      
+      // Fallback response if API fails
+      const fallbackResponse: Message = {
+        id: (Date.now() + 1).toString(),
+        sender: "avatar",
+        content: "I'm sorry, I'm having trouble responding right now. Could you please try again?",
+        timestamp: new Date(),
+      };
+      
+      setMessages(prev => [...prev, fallbackResponse]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const detectClearComponents = (message: string): string[] => {
@@ -161,97 +221,143 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
   };
 
   const resetSession = () => {
+    // Clean up any blob URLs before resetting
+    messages.forEach(message => {
+      if (message.audioUrl && message.audioUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(message.audioUrl);
+      }
+    });
+    
     setMessages([]);
     setSelectedScenario(null);
     setSessionActive(false);
+    setCurrentlyPlayingId(null);
   };
+
+  const replayAudio = async (messageId: string, audioUrl: string) => {
+    if (currentlyPlayingId === messageId) return; // Already playing
+    
+    try {
+      setCurrentlyPlayingId(messageId);
+      await playAudio(audioUrl);
+    } catch (error) {
+      console.error('Error replaying audio:', error);
+    } finally {
+      setCurrentlyPlayingId(null);
+    }
+  };
+
+  // Cleanup blob URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      messages.forEach(message => {
+        if (message.audioUrl && message.audioUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(message.audioUrl);
+        }
+      });
+    };
+  }, []);
 
   if (!sessionActive) {
     return (
-      <div className="p-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-semibold">AI Avatar Practice</h1>
-          <p className="text-muted-foreground mt-1">
-            Practice HPV conversations with AI-powered parent avatars
-          </p>
-        </div>
+      <div>
+        <div className="p-6 space-y-6">
+          <div>
+            <h1 className="text-3xl font-semibold">AI Avatar Practice</h1>
+            <p className="text-muted-foreground mt-1">
+              Practice HPV conversations with AI-powered parent avatars
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {scenarios.map((scenario) => (
-            <Card key={scenario.id} className="p-6 cursor-pointer hover:shadow-md transition-shadow">
-              <h3 className="font-semibold text-lg mb-2">{scenario.title}</h3>
-              <p className="text-muted-foreground mb-4">{scenario.description}</p>
-              
-              <div className="space-y-2 mb-4">
-                <div className="flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  <span className="font-medium">{scenario.parentProfile.name}</span>
-                  <span className="text-sm text-muted-foreground">
-                    (Age {scenario.parentProfile.age}, Child: {scenario.parentProfile.childAge}yo)
-                  </span>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {scenarios.map((scenario) => (
+              <Card key={scenario.id} className="p-6 cursor-pointer hover:shadow-md transition-shadow">
+                <h3 className="font-semibold text-lg mb-2">{scenario.title}</h3>
+                <p className="text-muted-foreground mb-4">{scenario.description}</p>
+                
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    <span className="font-medium">{scenario.parentProfile.name}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {scenario.parentProfile.age > 0 ? `(Age ${scenario.parentProfile.age}, Child: ${scenario.parentProfile.childAge}yo)` : '(AI Agent)'}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {scenario.parentProfile.concerns.map((concern, idx) => (
+                      <Badge key={idx} variant="secondary" className="text-xs">
+                        {concern}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1">
-                  {scenario.parentProfile.concerns.map((concern, idx) => (
-                    <Badge key={idx} variant="secondary" className="text-xs">
-                      {concern}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-              
-              <Button onClick={() => startSession(scenario)} className="w-full">
-                Start Practice Session
-              </Button>
-            </Card>
-          ))}
+                
+                <Button onClick={() => startSession(scenario)} className="w-full">
+                  Start Practice Session
+                </Button>
+              </Card>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Practice Session</h1>
-          <p className="text-muted-foreground">{selectedScenario?.title}</p>
+    <div>
+      <div className="p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold">Practice Session</h1>
+            <p className="text-muted-foreground">{selectedScenario?.title}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAudioEnabled(!isAudioEnabled)}
+              className="gap-2"
+            >
+              {isAudioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+              {isAudioEnabled ? 'Audio On' : 'Audio Off'}
+            </Button>
+            <Button variant="outline" onClick={resetSession} className="gap-2">
+              <RotateCcw className="w-4 h-4" />
+              New Session
+            </Button>
+          </div>
         </div>
-        <Button variant="outline" onClick={resetSession} className="gap-2">
-          <RotateCcw className="w-4 h-4" />
-          New Session
-        </Button>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-        <div className="lg:col-span-3">
-          <Card className="h-[600px] flex flex-col">
-            <div className="p-4 border-b">
-              <div className="flex items-center gap-3">
-                <Avatar>
-                  <AvatarFallback>
-                    {selectedScenario?.parentProfile.name.split(' ').map(n => n[0]).join('')}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <span className="font-medium">{selectedScenario?.parentProfile.name}</span>
-                  <p className="text-sm text-muted-foreground">AI Avatar • Parent</p>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-3">
+            <Card className="h-[600px] flex flex-col">
+              <div className="p-4 border-b">
+                <div className="flex items-center gap-3">
+                  <Avatar>
+                    <AvatarFallback>
+                      {selectedScenario?.parentProfile.name.split(' ').map(n => n[0]).join('')}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div>
+                    <span className="font-medium">{selectedScenario?.parentProfile.name}</span>
+                    <p className="text-sm text-muted-foreground">AI Avatar • Parent</p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-              <div className="space-y-4">
-                {messages.map((message) => (
-                  <div
-                    key={message.id}
-                    className={`flex gap-3 ${message.sender === "user" ? "flex-row-reverse" : ""}`}
-                  >
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback>
-                        {message.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div className={`flex-1 max-w-[80%] ${message.sender === "user" ? "text-right" : ""}`}>
+              <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
+                <div className="space-y-4">
+                  {messages.map((message) => (
+                    <div
+                      key={message.id}
+                      className={`flex gap-3 ${message.sender === "user" ? "flex-row-reverse" : ""}`}
+                    >
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback>
+                          {message.sender === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className={`flex-1 max-w-[80%] ${message.sender === "user" ? "text-right" : ""}`}>
                       <div
                         className={`p-3 rounded-lg ${
                           message.sender === "user"
@@ -259,7 +365,24 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
                             : "bg-muted"
                         }`}
                       >
-                        {message.content}
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="flex-1">{message.content}</span>
+                          {message.sender === "avatar" && message.audioUrl && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => replayAudio(message.id, message.audioUrl!)}
+                              disabled={currentlyPlayingId === message.id}
+                              className="h-6 w-6 p-0 flex-shrink-0"
+                            >
+                              {currentlyPlayingId === message.id ? (
+                                <Loader2 className="w-3 h-3 animate-spin" />
+                              ) : (
+                                <Volume2 className="w-3 h-3" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       {message.clearComponents && message.clearComponents.length > 0 && (
                         <div className="flex flex-wrap gap-1 mt-2">
@@ -270,35 +393,52 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
                           ))}
                         </div>
                       )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </ScrollArea>
+                  ))}
+                  {isLoading && (
+                    <div className="flex gap-3">
+                      <Avatar className="w-8 h-8">
+                        <AvatarFallback>
+                          <Bot className="w-4 h-4" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 max-w-[80%]">
+                        <div className="p-3 rounded-lg bg-muted">
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span className="text-sm text-muted-foreground">{selectedScenario?.parentProfile.name} is thinking...</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </ScrollArea>
 
-            <div className="p-4 border-t">
-              <div className="flex gap-2">
-                <Input
-                  value={currentMessage}
-                  onChange={(e) => setCurrentMessage(e.target.value)}
-                  placeholder="Type your response as the pediatrician..."
-                  onKeyPress={(e) => e.key === "Enter" && sendMessage()}
-                />
-                <Button
-                  onClick={() => setIsRecording(!isRecording)}
-                  variant="outline"
-                  size="icon"
-                  className={isRecording ? "bg-red-100 border-red-300" : ""}
-                >
-                  {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-                </Button>
-                <Button onClick={sendMessage}>
-                  <Send className="w-4 h-4" />
-                </Button>
+              <div className="p-4 border-t">
+                <div className="flex gap-2">
+                  <Input
+                    value={currentMessage}
+                    onChange={(e) => setCurrentMessage(e.target.value)}
+                    placeholder="Type your response as the pediatrician..."
+                    onKeyPress={(e) => e.key === "Enter" && sendMessage()}
+                  />
+                  <Button
+                    onClick={() => setIsRecording(!isRecording)}
+                    variant="outline"
+                    size="icon"
+                    className={isRecording ? "bg-red-100 border-red-300" : ""}
+                  >
+                    {isRecording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                  </Button>
+                  <Button onClick={sendMessage} disabled={isLoading || !currentMessage.trim()}>
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  </Button>
+                </div>
               </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
 
         <div className="space-y-4">
           <Card className="p-4">
@@ -313,13 +453,20 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
           </Card>
 
           <Card className="p-4">
-            <h3 className="font-semibold mb-3">Parent Profile</h3>
+            <h3 className="font-semibold mb-3">{selectedScenario?.parentProfile?.age && selectedScenario.parentProfile.age > 0 ? 'Parent Profile' : 'Agent Profile'}</h3>
             <div className="space-y-2 text-sm">
-              <div><strong>Name:</strong> {selectedScenario?.parentProfile.name}</div>
-              <div><strong>Age:</strong> {selectedScenario?.parentProfile.age}</div>
-              <div><strong>Child Age:</strong> {selectedScenario?.parentProfile.childAge}</div>
+              <div><strong>Name:</strong> {selectedScenario?.parentProfile?.name}</div>
+              {selectedScenario?.parentProfile?.age && selectedScenario.parentProfile.age > 0 && (
+                <>
+                  <div><strong>Age:</strong> {selectedScenario.parentProfile.age}</div>
+                  <div><strong>Child Age:</strong> {selectedScenario.parentProfile.childAge}</div>
+                </>
+              )}
+              {selectedScenario?.parentProfile?.age === 0 && (
+                <div><strong>Type:</strong> AI Agent</div>
+              )}
               <div>
-                <strong>Concerns:</strong>
+                <strong>Focus Areas:</strong>
                 <div className="flex flex-wrap gap-1 mt-1">
                   {selectedScenario?.parentProfile.concerns.map((concern, idx) => (
                     <Badge key={idx} variant="secondary" className="text-xs">
@@ -330,6 +477,7 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
               </div>
             </div>
           </Card>
+        </div>
         </div>
       </div>
     </div>

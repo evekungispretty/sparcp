@@ -28,9 +28,9 @@ const scenarios = [
         duration: "10-15 min",
         objectives: ["Build rapport", "Address safety concerns", "Provide clear recommendation"],
         parentProfile: {
-          name: "Sarah Johnson",
-          age: 42,
-          childAge: 11,
+          name: "Anne Palmer",
+          age: 37,
+          childAge: 10,
           background: "First-time parent, researched online",
           concerns: ["vaccine safety", "necessity at young age", "side effects"]
     }

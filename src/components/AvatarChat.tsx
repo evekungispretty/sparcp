@@ -304,8 +304,8 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
   }
 
   return (
-    <div>
-      <div className="p-6 space-y-4">
+    <div className="h-screen flex flex-col">
+      <div className="p-6 space-y-4 flex-1 flex flex-col">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold">Practice Session</h1>
@@ -328,9 +328,9 @@ export function AvatarChat({ selectedScenarioId, selectedFocus = [] }: AvatarCha
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 flex-1">
           <div className="lg:col-span-3">
-            <Card className="h-[600px] flex flex-col">
+            <Card className="h-full flex flex-col">
               <div className="p-4 border-b">
                 <div className="flex items-center gap-3">
                   <Avatar>
